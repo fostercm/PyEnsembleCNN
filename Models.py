@@ -24,21 +24,26 @@ class ResNetExtractor(ExtractorTemplate):
         # Inputted model name
         self.name = name
         
-        # Get the model and its weights
+        # Get the feature extractor, modify the classifier to output in 512, and create a CAM object
         if name == 'resnet18':
             self.extractor = models.resnet18(weights='ResNet18_Weights.DEFAULT')
+            self.extractor.fc = nn.Identity()
             self.cam = GradCAM(self.extractor, [self.extractor.layer4[-1].conv2])
         elif name == 'resnet34':
             self.extractor = models.resnet34(weights='ResNet34_Weights.DEFAULT')
+            self.extractor.fc = nn.Identity()
             self.cam = GradCAM(self.extractor, [self.extractor.layer4[-1].conv2])
         elif name == 'resnet50':
             self.extractor = models.resnet50(weights='ResNet50_Weights.DEFAULT')
+            self.extractor.fc = nn.AvgPool1d(kernel_size=4, stride=4, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.layer4[-1].conv3])
         elif name == 'resnet101':
             self.extractor = models.resnet101(weights='ResNet101_Weights.DEFAULT')
+            self.extractor.fc = nn.AvgPool1d(kernel_size=4, stride=4, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.layer4[-1].conv3])
         elif name == 'resnet152':
             self.extractor = models.resnet152(weights='ResNet152_Weights.DEFAULT')
+            self.extractor.fc = nn.AvgPool1d(kernel_size=4, stride=4, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.layer4[-1].conv3])
         else:
             raise ValueError('Model not found')
@@ -46,9 +51,6 @@ class ResNetExtractor(ExtractorTemplate):
         # Freeze weights
         for param in self.extractor.parameters():
             param.requires_grad = False
-        
-        # Output in 512 dimensionality
-        self.extractor.fc = nn.Linear(self.extractor.fc.in_features, 512)
     
     # Forward pass
     def __call__(self, x):
@@ -80,18 +82,22 @@ class DenseNetExtractor(ExtractorTemplate):
         # Inputted model name
         self.name = name
         
-        # Get the model and its weights
+        # Get the feature extractor, modify the classifier to output in 512, and create a CAM object
         if name == 'densenet121':
             self.extractor = models.densenet121(weights='DenseNet121_Weights.DEFAULT')
+            self.extractor.classifier = nn.AvgPool1d(kernel_size=2, stride=2, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.features.denseblock4.denselayer16.conv2])
         elif name == 'densenet161':
             self.extractor = models.densenet161(weights='DenseNet161_Weights.DEFAULT')
+            self.extractor.classifier = nn.AvgPool1d(kernel_size=164, stride=4, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.features.denseblock4.denselayer24.conv2])
         elif name == 'densenet169':
             self.extractor = models.densenet169(weights='DenseNet169_Weights.DEFAULT')
+            self.extractor.classifier = nn.AvgPool1d(kernel_size=131, stride=3, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.features.denseblock4.denselayer32.conv2])
         elif name == 'densenet201':
             self.extractor = models.densenet201(weights='DenseNet201_Weights.DEFAULT')
+            self.extractor.classifier = nn.AvgPool1d(kernel_size=387, stride=3, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.features.denseblock4.denselayer32.conv2])
         else:
             raise ValueError('Model not found')
@@ -99,9 +105,6 @@ class DenseNetExtractor(ExtractorTemplate):
         # Freeze weights
         for param in self.extractor.parameters():
             param.requires_grad = False
-        
-        # Output in 512 dimensionality
-        self.extractor.classifier = nn.Linear(self.extractor.classifier.in_features, 512)
     
     # Forward pass
     def __call__(self, x):
@@ -132,18 +135,22 @@ class VGGExtractor(ExtractorTemplate):
         # Inputted model name
         self.name = name
         
-        # Get the model and its weights
+        # Get the feature extractor, modify the classifier to output in 512, and create a CAM object
         if name == 'vgg11':
             self.extractor = models.vgg11(weights='VGG11_Weights.DEFAULT')
+            self.extractor.classifier[6] = nn.AvgPool1d(kernel_size=8, stride=8, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.features[18]])
         elif name == 'vgg13':
             self.extractor = models.vgg13(weights='VGG13_Weights.DEFAULT')
+            self.extractor.classifier[6] = nn.AvgPool1d(kernel_size=8, stride=8, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.features[22]])
         elif name == 'vgg16':
             self.extractor = models.vgg16(weights='VGG16_Weights.DEFAULT')
+            self.extractor.classifier[6] = nn.AvgPool1d(kernel_size=8, stride=8, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.features[28]])
         elif name == 'vgg19':
             self.extractor = models.vgg19(weights='VGG19_Weights.DEFAULT')
+            self.extractor.classifier[6] = nn.AvgPool1d(kernel_size=8, stride=8, padding=0)
             self.cam = GradCAM(self.extractor, [self.extractor.features[34]])
         else:
             raise ValueError('Model not found')
@@ -151,9 +158,6 @@ class VGGExtractor(ExtractorTemplate):
         # Freeze weights
         for param in self.extractor.parameters():
             param.requires_grad = False
-        
-        # Output in 512 dimensionality
-        self.extractor.classifier[6] = nn.Linear(self.extractor.classifier[6].in_features, 512)
     
     # Forward pass
     def __call__(self, x):
