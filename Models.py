@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from torchvision import models
 import torch
 from torch import nn
-from pytorch_grad_cam import GradCAM # type: ignore
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget # type: ignore
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
 # Abstract class for models
 class ExtractorTemplate(ABC):
@@ -61,6 +61,9 @@ class ResNetExtractor(ExtractorTemplate):
         # Unfreeze weights (gradients required)
         for param in self.extractor.parameters():
             param.requires_grad = True
+        
+        # Set extractor to evaluation mode
+        self.extractor.eval()
             
         # Get CAM
         CAM = self.cam(x, [ClassifierOutputTarget(class_idx)])
@@ -68,9 +71,6 @@ class ResNetExtractor(ExtractorTemplate):
         # Freeze weights
         for param in self.extractor.parameters():
             param.requires_grad = False
-        
-        for param in self.extractor.fc.parameters():
-            param.requires_grad = True
         
         # Remove batch dimension
         return torch.tensor(CAM[0])
@@ -116,14 +116,14 @@ class DenseNetExtractor(ExtractorTemplate):
         for param in self.extractor.parameters():
             param.requires_grad = True
         
+        # Set extractor to evaluation mode
+        self.extractor.eval()
+        
         CAM = self.cam(x, [ClassifierOutputTarget(class_idx)])
         
         # Freeze weights
         for param in self.extractor.parameters():
             param.requires_grad = False
-        
-        for param in self.extractor.classifier.parameters():
-            param.requires_grad = True
         
         # Remove batch dimension
         return torch.tensor(CAM[0])
@@ -168,15 +168,15 @@ class VGGExtractor(ExtractorTemplate):
         # Unfreeze weights (gradients required)
         for param in self.extractor.parameters():
             param.requires_grad = True
+            
+        # Set extractor to evaluation mode
+        self.extractor.eval()
         
         CAM = self.cam(x, [ClassifierOutputTarget(class_idx)])
         
         # Freeze weights
         for param in self.extractor.parameters():
             param.requires_grad = False
-        
-        for param in self.extractor.classifier[6].parameters():
-            param.requires_grad = True
         
         # Remove batch dimension
         return torch.tensor(CAM[0])
@@ -231,3 +231,12 @@ class PredictionModel(nn.Module):
         
         # Weighted average of CAMs
         return torch.sum(CAMs * proportions[:, None, None], dim=0).detach()
+    
+    def to(self, device):
+        
+        # Move model to device
+        super().to(device)
+        
+        # Move all parameters to device
+        for extractor in self.extractors:
+            extractor.extractor.to(device)
