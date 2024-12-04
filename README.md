@@ -1,1 +1,1 @@
-# ensemble-fewshot-medical
+# CNN-Ensemble-PyTorch
