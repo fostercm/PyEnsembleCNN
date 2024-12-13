@@ -1,20 +1,7 @@
-from abc import ABC, abstractmethod
-from torchvision import models
 import torch
 from torch import nn
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-
-# Abstract class for models
-class ExtractorTemplate(ABC):
-    
-    @abstractmethod
-    def __call__(self, x):
-        "Forward pass"
-    
-    @abstractmethod
-    def getCAM(self, x, class_idx):
-        "Get class activation map"
 
 def get_last_conv_layer(model):
     last_conv_layer = None
@@ -49,6 +36,9 @@ class AverageEnsemble(nn.Module):
         # Softmax layers
         self.proportion_softmax = torch.nn.Softmax(dim=0)
         self.output_softmax = torch.nn.Softmax(dim=1)
+        
+        # Check model
+        self.checks()
     
     def checks(self):
         
@@ -112,3 +102,44 @@ class AverageEnsemble(nn.Module):
         # Move all parameters to device
         for extractor in self.extractors:
             extractor.to(device)
+
+class ConcatenationEnsemble(nn.Module):
+        
+        def __init__(self, extractors, classifier):
+            
+            super(ConcatenationEnsemble, self).__init__()
+            
+            # Pretrained feature extractors
+            self.extractors = extractors
+            
+            # Classifier
+            self.classifier = classifier
+            
+            # Softmax layer
+            self.output_softmax = torch.nn.Softmax(dim=1)
+            
+            # Check model
+            self.checks()
+        
+        def checks(self):
+            
+            # Check that the classifier input dimension matches the sum of the extractor output dimensions
+            x = torch.randn(1, 3, 224, 224)
+            if self.classifier.in_features != sum([extractor(x).shape[1] for extractor in self.extractors]):
+                raise ValueError('Classifier input dimension does not match the sum of extractor output dimensions')
+            
+            # Freeze extractor weights
+            for extractor in self.extractors:
+                for param in extractor.parameters():
+                    param.requires_grad = False
+        
+        def __call__(self, x):
+            
+            # Extract features from each model
+            extracted_features = torch.cat([extractor(x) for extractor in self.extractors], dim=1)
+            
+            # Classifier head
+            x = self.classifier(x)
+            
+            # Softmax output
+            return self.output_softmax(x)
