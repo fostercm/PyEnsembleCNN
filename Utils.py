@@ -1,167 +1,49 @@
-from torch.utils.data import Dataset, DataLoader
-import pandas as pd
-import os
-from PIL import Image
-from torchvision import transforms
 import torch
-import random
+from torch import nn
 
-class TestDataset(Dataset):
-    def __init__(self, data_path, transform=None, target_count=None):
-
-        # Store the directory path
-        self.directory = data_path
-        
-        # Get list of all files
-        self.files = os.listdir(self.directory)
-        
-        # Store transform
-        self.transform = transform
-        
-        if target_count:
-            self.files = random.sample(self.files, target_count)
+# Get the last convolutional layer of the model for CAM purposes
+def get_last_conv_layer(model):
+    last_conv_layer = None
+    for layer in model.modules():
+        if isinstance(layer, nn.Conv2d):
+            last_conv_layer = layer
+            
+    if last_conv_layer is None:
+        raise Exception("No 2D convolutional layers found in model")
     
-    def __len__(self):
-        return len(self.files)
+    return last_conv_layer  
     
-    def __getitem__(self, idx):
-        
-        # Get filename
-        filename = self.files[idx]
-        
-        # Construct full file path
-        file_path = os.path.join(self.directory, filename)
-        
-        # Load image
-        image = Image.open(file_path)
-        
-        # Apply transform if exists
-        if self.transform:
-            image = self.transform(image)
-        
-        return image
-
-class TrainDataset(Dataset):
-    def __init__(self, data_path, label_path, transform=None, target_count=None):
-
-        # Read the CSV file
-        self.labels = pd.read_csv(label_path)
-        self.labels = torch.tensor((self.labels['level']))
-        
-        # Store the directory path
-        self.directory = data_path
-        
-        # Get list of all files
-        self.files = os.listdir(self.directory)
-        
-        # Store transform
-        self.transform = transform
-        
-        # Get unique classes and their counts
-        unique_classes, counts = torch.unique(self.labels, return_counts=True)
-        self.class_counts = {cls.item(): count.item() for cls, count in zip(unique_classes, counts)}
-
-        # Determine the target count for each class
-        self.target_count = target_count or min(self.class_counts.values())
-
-        # Generate balanced indices (if training)
-        self.balanced_indices = self.get_balanced_indices()
+# Replace the classification head of a CNN with a layer to output at a certain size
+def replace_classifier(model, output_size, pooling='avg'):
     
-    def get_balanced_indices(self):
-        
-        indices_per_class = {cls: (self.labels == cls).nonzero(as_tuple=True)[0] for cls in self.class_counts.keys()}
-        balanced_indices = []
-
-        for cls, indices in indices_per_class.items():
-            sampled_indices = random.sample(indices.tolist(), self.target_count)
-            balanced_indices.extend(sampled_indices)
-
-        return balanced_indices
-        
+    # Remove the classifier layer
+    classifier_name = list(model.named_children())[-1][0]
+    setattr(model, classifier_name, nn.Identity())
     
-    def __len__(self):
-        return len(self.balanced_indices)
+    # Get the input size of the classifier
+    input_size = model(torch.randn(1, 3, 224, 224)).shape[1]
     
-    def __getitem__(self, idx):
-        
-        # Get index
-        idx = self.balanced_indices[idx]
-        
-        # Get filename
-        filename = self.files[idx]
-        
-        # Construct full file path
-        file_path = os.path.join(self.directory, filename)
-        
-        # Load image
-        image = Image.open(file_path)
-        
-        # Apply transform if exists
-        if self.transform:
-            image = self.transform(image)
-        
-        return image, self.labels[idx]
+    # If we are downsizing, pool
+    if input_size > output_size:
+        if pooling == 'avg':
+            setattr(model, classifier_name, nn.AdaptiveAvgPool1d(output_size))
+        elif pooling == 'max':
+            setattr(model, classifier_name, nn.AdaptiveMaxPool1d(output_size))
+        else:
+            raise ValueError('Pooling must be either "avg" or "max"')
     
-def train(model, train_loader, val_loader, optimizer, criterion, device):
+    # If we are upsizing, interpolate
+    elif input_size < output_size:
+        setattr(model, classifier_name, Interpolate(size=output_size, mode='bilinear'))
     
-    model.train()
-    train_loss = 0.0
-    
-    for i, data in enumerate(train_loader):
+# Implementation of the interpolate layer for upsizing
+class Interpolate(nn.Module):
+    def __init__(self, size, mode):
+        super(Interpolate, self).__init__()
+        self.interp = nn.functional.interpolate
+        self.size = size
+        self.mode = mode
         
-        # Get data from dataloader
-        inputs, labels = data
-        inputs, labels = inputs.to(device), labels.to(device)
-        
-        # Zero the parameter gradients
-        optimizer.zero_grad()
-        
-        # Forward pass
-        outputs = model(inputs)
-        
-        # Calculate loss
-        loss = criterion(outputs, labels)
-        
-        # Backward pass
-        loss.backward()
-        optimizer.step()
-        
-        # Track loss
-        train_loss += loss.item()
-    
-    val_loss = 0.0
-    
-    for i, data in enumerate(val_loader):
-        
-        # Get data from dataloader
-        inputs, labels = data
-        inputs, labels = inputs.to(device), labels.to(device)
-        
-        # Forward pass
-        outputs = model(inputs)
-        
-        # Calculate loss
-        loss = criterion(outputs, labels)
-        
-        # Track loss
-        val_loss += loss.item()
-        
-    return train_loss / len(train_loader), val_loss / len(val_loader)
-
-def process_data(data_path, label_path, batch_size, target_count=None):
-    
-    # Define transforms
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor()
-    ])
-    
-    # Create datasets
-    train_dataset = TrainDataset(os.path.join(data_path,"train"), label_path, transform)
-    test_dataset = TestDataset(os.path.join(data_path,"test"), transform, target_count)
-    
-    # Create dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-    
-    return train_loader, val_loader
+    def forward(self, x):
+        x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
+        return x
