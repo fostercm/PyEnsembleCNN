@@ -34,7 +34,7 @@ def replace_classifier(model, output_size, pooling='avg'):
     
     # If we are upsizing, interpolate
     elif input_size < output_size:
-        setattr(model, classifier_name, Interpolate(size=output_size, mode='bilinear'))
+        setattr(model, classifier_name, Interpolate(size=output_size, mode='linear'))
     
 # Implementation of the interpolate layer for upsizing
 class Interpolate(nn.Module):
@@ -45,5 +45,7 @@ class Interpolate(nn.Module):
         self.mode = mode
         
     def forward(self, x):
+        x = x.unsqueeze(1)
         x = self.interp(x, size=self.size, mode=self.mode, align_corners=False)
+        x = x.squeeze(1)
         return x
