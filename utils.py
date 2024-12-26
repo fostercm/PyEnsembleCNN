@@ -3,6 +3,7 @@ from torch import nn
 
 # Get the last convolutional layer of the model for CAM purposes
 def get_last_conv_layer(model):
+    
     last_conv_layer = None
     for layer in model.modules():
         if isinstance(layer, nn.Conv2d):
