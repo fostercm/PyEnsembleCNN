@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from utils import get_last_conv_layer
+from utils.modify import get_last_conv_layer
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -35,6 +35,22 @@ class EnsembleTemplate(ABC):
         
         # Move head to device
         self.head.to(device)
+    
+    def train(self) -> None:
+        # Set model to train mode
+        self.head.train()
+    
+    def parameters(self) -> List[nn.Parameter]:
+        # Return head parameters
+        return self.head.parameters()
+    
+    def state_dict(self) -> dict:
+        # Return head state dict
+        return self.head.state_dict()
+    
+    def load_state_dict(self, state_dict: dict) -> None:
+        # Load head state dict
+        self.head.load_state_dict(state_dict)
 
 class AverageEnsemble(EnsembleTemplate):
     
@@ -101,6 +117,10 @@ class AverageEnsemble(EnsembleTemplate):
         
         # Weighted average of CAMs
         return torch.sum(CAMs * proportions[:, None, None], dim=0).detach()
+    
+    def to(self, device: str) -> None:
+        super(AverageEnsemble, self).to(device)
+        self.proportions = self.proportions.to(device)
 
 class StackEnsemble(EnsembleTemplate):
         
