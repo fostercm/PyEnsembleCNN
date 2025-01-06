@@ -19,12 +19,12 @@ The framework introduces a unique approach to ensemble weighting by making the m
 ### Usage
 ```python
 # Example usage with common CNN architectures
-extractors = [resnet50(weights='ResNet18_Weights.IMAGENET1K_V1'),
-              densenet121(weights='DenseNet121_Weights.IMAGENET1K_V1'),
-              vgg16(weights='VGG16_Weights.IMAGENET1K_V1')]  # Pre-trained models
+extractors = [resnet50(weights='IMAGENET1K_V1'),
+              densenet121(weights='IMAGENET1K_V1'),
+              vgg16(weights='IMAGENET1K_V1')]  # Pre-trained models
 
 # Replace the classification heads of each extractor with pooling or interpolation (downscaling vs upscaling)
-for i in range(extractors):
+for i in range(len(extractors)):
   replace_classifier(extractors[i], 2048, pooling='avg') # Supports avg and max pooling
 
 # Simple MLP for classification
