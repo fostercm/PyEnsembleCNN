@@ -40,6 +40,10 @@ class EnsembleTemplate(ABC):
         # Set model to train mode
         self.head.train()
     
+    def eval(self) -> None:
+        # Set model to eval mode
+        self.head.eval()
+    
     def parameters(self) -> List[nn.Parameter]:
         # Return head parameters
         return self.head.parameters()
