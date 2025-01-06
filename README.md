@@ -68,12 +68,6 @@ Originally developed for medical imaging applications, but designed to be domain
 * Image classification
 * Visual reasoning tasks
 
-## Future Development
-* Benchmark comparisons against traditional ensemble methods
-* Integration of additional visualization techniques
-* Support for non-CNN architectures
-* Performance optimization for large-scale deployments
-
 ## Installation and Dependencies
 ```bash
 pip install PyEnsembleCNN
