@@ -34,8 +34,9 @@ classifier = nn.Sequential(
     nn.Linear(512, num_classes)
 )
 
-# Initialize ensemble with automatic weight learning
+# Initialize ensemble with automatic weight learning and train
 model = AverageEnsemble(extractors, classifier, CAM=True)
+best_epoch, best_model = train(model, train_loader, val_loader, optimizer, criterion, epochs, device='cuda', verbose=True)
 ```
 
 ### Advanced Features
