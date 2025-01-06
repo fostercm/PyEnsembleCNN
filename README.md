@@ -70,9 +70,7 @@ Originally developed for medical imaging applications, but designed to be domain
 
 ## Installation and Dependencies
 ```bash
-pip install torch
-pip install pytorch-grad-cam
-pip install ??? (PyPI name not finalized)
+pip install PyEnsembleCNN
 ```
 
 ## Contributing
