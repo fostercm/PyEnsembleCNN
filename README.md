@@ -1,4 +1,4 @@
-# Dynamic CNN Ensemble Framework
+# PyEnsembleCNN: A dynamic CNN ensembling framework for PyTorch
 A PyTorch Implementation of Self-Learning CNN Ensembles with Integrated Visualization
 
 ## Key Features
