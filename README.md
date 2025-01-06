@@ -18,6 +18,12 @@ The framework introduces a unique approach to ensemble weighting by making the m
 
 ### Usage
 ```python
+# Imports
+from torchvision.models import resnet50, densenet121, vgg16
+from PyEnsembleCNN.ensembles import AverageEnsemble
+from PyEnsembleCNN.utils.modify import replace_classifier
+from PyEnsembleCNN.utils.train import train
+
 # Example usage with common CNN architectures
 extractors = [resnet50(weights='IMAGENET1K_V1'),
               densenet121(weights='IMAGENET1K_V1'),
